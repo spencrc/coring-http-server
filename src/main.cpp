@@ -1,6 +1,5 @@
 #include "coro.hpp"
 #include "socket.hpp"
-#include <csignal>
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -9,12 +8,21 @@ constexpr unsigned short PORT = 3003;
 constexpr unsigned int KERNEL_BACKLOG = 128;
 constexpr unsigned int QUEUE_DEPTH = 4096;
 
-// need to create another function for async handling connection
+Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
+	std::optional<std::string> req = co_await RecvAwaiter(clientfd, ring);
+	if (!req) {
+		close(clientfd);
+		co_return;
+	}
 
-ConnectionCoroutine serveAsync(int sockfd, io_uring *ring) noexcept {
-	while (true) {
-		co_await AcceptAwaiter(sockfd, ring);
-		break;
+	std::cout << "Got the following:\n"
+			  << *req << std::endl;
+}
+
+Task<Promise> serveAsync(int sockfd, io_uring *ring) noexcept {
+	int clientfd = co_await AcceptAwaiter(sockfd, ring);
+	if (clientfd >= 0) {
+		handleConnectionAsync(clientfd, ring);
 	}
 }
 
@@ -22,14 +30,12 @@ void eventLoop(io_uring *ring) noexcept {
 	io_uring_cqe *cqe = nullptr;
 
 	while (true) {
-		std::cout << "Waiting..." << std::endl;
 		io_uring_wait_cqe(ring, &cqe);
-		std::cout << "Got it!" << std::endl;
 		void *data = io_uring_cqe_get_data(cqe);
-		auto handle = std::coroutine_handle<ConnectionCoroutine::Promise>::from_address(data);
+		auto handle = std::coroutine_handle<Promise>::from_address(data);
+		handle.promise().awaiter->setRes(cqe->res);
 		handle.resume();
 		io_uring_cqe_seen(ring, cqe);
-		break;
 	}
 }
 
