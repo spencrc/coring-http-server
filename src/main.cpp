@@ -1,6 +1,6 @@
 #include "coro.hpp"
+#include "parser.hpp"
 #include "socket.hpp"
-#include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -15,14 +15,25 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 		co_return;
 	}
 
-	std::cout << "Got the following:\n"
-			  << *req << std::endl;
+	RequestParser p(HTTP_REQUEST);
+	const int ret = p.execute(*req);
+	if (ret != HPE_OK) {
+		// Malformed request! We cannot do anything with this.
+		close(clientfd);
+		co_return;
+	}
+
+	co_await WriteAwaiter(clientfd, ring);
+
+	close(clientfd);
 }
 
 Task<Promise> serveAsync(int sockfd, io_uring *ring) noexcept {
-	int clientfd = co_await AcceptAwaiter(sockfd, ring);
-	if (clientfd >= 0) {
-		handleConnectionAsync(clientfd, ring);
+	while (true) {
+		int clientfd = co_await AcceptAwaiter(sockfd, ring);
+		if (clientfd >= 0) {
+			handleConnectionAsync(clientfd, ring);
+		}
 	}
 }
 

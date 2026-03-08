@@ -1,13 +1,16 @@
-CC="clang"
-CXX="clang++"
+CC=clang
+CXX=clang++
 
-all: bin/server
+EXE_NAME=server
+OUTPUT_DIR=bin/release
+
+all: $(OUTPUT_DIR)/$(EXE_NAME)
 
 debug: 
-	$(MAKE) CFLAGS="-g -O0 -Wall -Wextra -Wpedantic" LDFLAGS="-fsanitize=address" server
+	$(MAKE) CFLAGS="-g -O0 -Wall -Wextra -Wpedantic" LDFLAGS="-fsanitize=address" OUTPUT_DIR="bin/debug" all
 
 run: all
-	./bin/server
+	./$(OUTPUT_DIR)/server
 
 clean:
 	rm -rf bin
@@ -17,29 +20,28 @@ clean:
 ################################################################
 
 APP_SOURCES = $(wildcard src/*.cpp)
-APP_OBJECTS = $(patsubst src/%.cpp, bin/%.o, $(APP_SOURCES))
+APP_OBJECTS = $(patsubst src/%.cpp, $(OUTPUT_DIR)/%.o, $(APP_SOURCES))
+DEPENDS := $(patsubst src/%.cpp, $(OUTPUT_DIR)/%.d, $(APP_SOURCES))
 
-bin/server: $(APP_OBJECTS) bin/libllhttp.a
-	$(CXX) -o bin/server $(APP_OBJECTS) -luring -lllhttp -Lbin $(LDFLAGS)
+$(OUTPUT_DIR)/$(EXE_NAME): $(APP_OBJECTS) $(OUTPUT_DIR)/libllhttp.a
+	$(CXX) -o $(OUTPUT_DIR)/$(EXE_NAME) $(APP_OBJECTS) -luring -lllhttp -L$(OUTPUT_DIR) $(LDFLAGS)
 
-bin/main.o: src/main.cpp
-	@mkdir -p bin
-	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -c src/main.cpp -o bin/main.o
+-include $(DEPENDS)
 
-bin/%.o: src/%.cpp
-	@mkdir -p bin
-	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -c $< -o $@
+$(OUTPUT_DIR)/%.o: src/%.cpp
+	@mkdir -p $(OUTPUT_DIR)
+	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -MMD -MP -c $< -o $@
 
 ################################################################
 # LLHTTP
 ################################################################
 
 LLHTTP_SOURCES = vendor/llhttp/api.c vendor/llhttp/http.c vendor/llhttp/llhttp.c
-LLHTTP_OBJECTS = $(patsubst vendor/llhttp/%.c, bin/%.o, $(LLHTTP_SOURCES))
+LLHTTP_OBJECTS = $(patsubst vendor/llhttp/%.c, $(OUTPUT_DIR)/%.o, $(LLHTTP_SOURCES))
 
-bin/libllhttp.a: $(LLHTTP_OBJECTS)
-	ar rcs bin/libllhttp.a $(LLHTTP_OBJECTS)
+$(OUTPUT_DIR)/libllhttp.a: $(LLHTTP_OBJECTS)
+	ar rcs $(OUTPUT_DIR)/libllhttp.a $(LLHTTP_OBJECTS)
 
-bin/%.o: vendor/llhttp/%.c
-	@mkdir -p bin
+$(OUTPUT_DIR)/%.o: vendor/llhttp/%.c
+	@mkdir -p $(OUTPUT_DIR)
 	$(CC) -c $< -o $@

@@ -44,7 +44,6 @@ class Awaiter {
 #ifdef DEBUG_MODE
 	int id = 0;
 #endif
-
   private:
 	int res = -1;
 };
@@ -97,6 +96,38 @@ class RecvAwaiter : public Awaiter {
 		}
 		return buffer.data();
 	}
+
+  private:
+	int clientfd;
+	io_uring *ring;
+	std::array<char, BUFFER_LEN> buffer{};
+};
+
+class WriteAwaiter : public Awaiter {
+  public:
+	WriteAwaiter(int clientfd, io_uring *ring) noexcept : clientfd(clientfd), ring(ring) {
+#ifdef DEBUG_MODE
+		id = 3;
+#endif
+	}
+	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+		handle.promise().awaiter = this;
+
+		std::string RES = "HTTP/1.1 200 \r\n"
+						  "Content-Length: 12 \r\n"
+						  "Content-Type: text/html \r\n"
+						  "Connection: close \r\n\r\n"
+						  "Hello World!";
+
+		std::copy(RES.begin(), RES.begin() + RES.size(), buffer.begin());
+
+		io_uring_sqe *sqe = io_uring_get_sqe(ring);
+		io_uring_sqe_set_data(sqe, handle.address());
+
+		io_uring_prep_write(sqe, clientfd, &buffer, buffer.size(), 0);
+		io_uring_submit(ring);
+	}
+	void await_resume() const noexcept {}
 
   private:
 	int clientfd;
