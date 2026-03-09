@@ -1,4 +1,5 @@
 #pragma once
+#include "constants.hpp"
 #include <array>
 #include <coroutine>
 #include <exception>
@@ -73,7 +74,6 @@ class AcceptAwaiter : public Awaiter {
 	io_uring *ring;
 };
 
-constexpr unsigned int BUFFER_LEN = 2048;
 class RecvAwaiter : public Awaiter {
   public:
 	RecvAwaiter(int clientfd, io_uring *ring) noexcept : clientfd(clientfd), ring(ring) {
@@ -86,8 +86,14 @@ class RecvAwaiter : public Awaiter {
 
 		io_uring_sqe *sqe = io_uring_get_sqe(ring);
 		io_uring_sqe_set_data(sqe, handle.address());
-
+		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 		io_uring_prep_recv(sqe, clientfd, &buffer, buffer.size(), 0);
+
+		sqe = io_uring_get_sqe(ring);
+		io_uring_sqe_set_data(sqe, nullptr);
+		io_uring_sqe_set_flags(sqe, 0);
+		io_uring_prep_link_timeout(sqe, &ts, 0);
+
 		io_uring_submit(ring);
 	}
 	std::optional<std::string> await_resume() const noexcept {
@@ -101,6 +107,10 @@ class RecvAwaiter : public Awaiter {
 	int clientfd;
 	io_uring *ring;
 	std::array<char, BUFFER_LEN> buffer{};
+	struct __kernel_timespec ts = {
+		1,
+		0,
+	};
 };
 
 class WriteAwaiter : public Awaiter {
@@ -113,24 +123,34 @@ class WriteAwaiter : public Awaiter {
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
-		std::string RES = "HTTP/1.1 200 \r\n"
-						  "Content-Length: 12 \r\n"
-						  "Content-Type: text/html \r\n"
-						  "Connection: close \r\n\r\n"
-						  "Hello World!";
+		const std::string response = "HTTP/1.1 200 \r\n"
+									 "Content-Length: 12 \r\n"
+									 "Content-Type: text/html \r\n"
+									 "Connection: keep-alive \r\n\r\n"
+									 "Hello World!";
 
-		std::copy(RES.begin(), RES.begin() + RES.size(), buffer.begin());
+		std::copy(response.begin(), response.begin() + response.size(), buffer.begin());
 
 		io_uring_sqe *sqe = io_uring_get_sqe(ring);
 		io_uring_sqe_set_data(sqe, handle.address());
+		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
+		io_uring_prep_write(sqe, clientfd, &buffer, response.size(), 0);
 
-		io_uring_prep_write(sqe, clientfd, &buffer, buffer.size(), 0);
+		sqe = io_uring_get_sqe(ring);
+		io_uring_sqe_set_data(sqe, nullptr);
+		io_uring_sqe_set_flags(sqe, 0);
+		io_uring_prep_link_timeout(sqe, &ts, 0);
+
 		io_uring_submit(ring);
 	}
-	void await_resume() const noexcept {}
+	int await_resume() const noexcept { return getRes(); }
 
   private:
 	int clientfd;
 	io_uring *ring;
 	std::array<char, BUFFER_LEN> buffer{};
+	struct __kernel_timespec ts = {
+		1,
+		0,
+	};
 };
