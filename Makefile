@@ -30,7 +30,7 @@ $(OUTPUT_DIR)/$(EXE_NAME): $(APP_OBJECTS) $(OUTPUT_DIR)/libllhttp.a
 
 $(OUTPUT_DIR)/%.o: src/%.cpp
 	@mkdir -p $(OUTPUT_DIR)
-	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -MMD -MP -c $< -o $@
+	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -Iinclude -MMD -MP -c $< -o $@
 
 ################################################################
 # LLHTTP

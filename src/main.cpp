@@ -12,6 +12,7 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 			break;
 		}
 
+		// needs to be handled async!
 		RequestParser p(HTTP_REQUEST);
 		const int parser_errno = p.execute(*req);
 		if (parser_errno != HPE_OK) {
