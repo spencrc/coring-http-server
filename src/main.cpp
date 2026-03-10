@@ -2,31 +2,38 @@
 #include "parser.hpp"
 #include "socket.hpp"
 #include "task.hpp"
+#include <iostream>
 #include <liburing.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <unordered_map>
 
 Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
-	while (true) {
-		std::optional<std::string> req = co_await RecvAwaiter(clientfd, ring);
-		if (!req) {
+	unsigned int exchanges = 0;
+	std::array<char, BUFFER_LEN> buffer{};
+	std::array<char, BUFFER_LEN> write_buffer{};
+
+	while (++exchanges < MAX_NUM_EXCHANGES) {
+		int res = co_await RecvAwaiter(clientfd, ring, &buffer);
+		if (res <= 0) {
 			break;
 		}
 
 		// needs to be handled async!
-		RequestParser p(HTTP_REQUEST);
-		const int parser_errno = p.execute(*req);
-		if (parser_errno != HPE_OK) {
-			// Malformed request! We cannot do anything with this.
-			break;
-		}
+		// RequestParser p(HTTP_REQUEST);
+		// const int parser_errno = p.execute();
+		// if (parser_errno != HPE_OK) {
+		// 	// Malformed request! We cannot do anything with this.
+		// 	break;
+		// }
 
-		const int res = co_await WriteAwaiter(clientfd, ring);
+		res = co_await WriteAwaiter(clientfd, ring, &write_buffer);
 		if (res < 0) {
 			break;
 		}
+		// break;
 	}
-	close(clientfd);
+	co_await CloseAwaiter(clientfd, ring);
 }
 
 Task<Promise> serveAsync(int sockfd, io_uring *ring) noexcept {
@@ -66,7 +73,7 @@ int main() {
 	sock.bind(PORT, INADDR_ANY);
 	sock.listen(KERNEL_BACKLOG);
 
-	serveAsync(sock.getFd(), &ring);
+	auto serve = serveAsync(sock.getFd(), &ring);
 
 	eventLoop(&ring);
 
