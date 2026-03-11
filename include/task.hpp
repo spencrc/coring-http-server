@@ -22,7 +22,7 @@ class Task {
 class Awaiter;
 struct Promise {
 	Task<Promise> get_return_object() {
-		return Task{std::coroutine_handle<Promise>::from_promise(*this)};
+		return Task<Promise>{std::coroutine_handle<Promise>::from_promise(*this)};
 	}
 	std::suspend_never initial_suspend() noexcept { return {}; }
 	std::suspend_never final_suspend() noexcept { return {}; }
@@ -60,9 +60,8 @@ class AcceptAwaiter : public Awaiter {
 		handle.promise().awaiter = this;
 
 		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_sqe_set_data(sqe, handle.address());
-
 		io_uring_prep_accept(sqe, sockfd, nullptr, nullptr, 0);
+		io_uring_sqe_set_data(sqe, handle.address());
 		io_uring_submit(ring);
 	}
 	int await_resume() const noexcept {
@@ -76,7 +75,7 @@ class AcceptAwaiter : public Awaiter {
 
 class RecvAwaiter : public Awaiter {
   public:
-	RecvAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf) noexcept : clientfd(clientfd), ring(ring), buffer(buf) {
+	RecvAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ring(ring), buffer(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 2;
 #endif
@@ -85,14 +84,14 @@ class RecvAwaiter : public Awaiter {
 		handle.promise().awaiter = this;
 
 		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_sqe_set_data(sqe, handle.address());
-		// io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 		io_uring_prep_recv(sqe, clientfd, buffer, buffer->size(), 0);
+		io_uring_sqe_set_data(sqe, handle.address());
+		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 
-		// sqe = io_uring_get_sqe(ring);
-		// io_uring_sqe_set_data(sqe, nullptr);
-		// io_uring_sqe_set_flags(sqe, 0);
-		// io_uring_prep_link_timeout(sqe, &ts, 0);
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_link_timeout(sqe, ts, 0);
+		io_uring_sqe_set_data(sqe, nullptr);
+		io_uring_sqe_set_flags(sqe, 0);
 
 		io_uring_submit(ring);
 	}
@@ -104,10 +103,7 @@ class RecvAwaiter : public Awaiter {
 	int clientfd;
 	io_uring *ring;
 	std::array<char, BUFFER_LEN> *buffer;
-	struct __kernel_timespec ts = {
-		1,
-		0,
-	};
+	__kernel_timespec *ts;
 };
 
 const std::string response = "HTTP/1.1 200 \r\n"
@@ -118,7 +114,7 @@ const std::string response = "HTTP/1.1 200 \r\n"
 
 class WriteAwaiter : public Awaiter {
   public:
-	WriteAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf) noexcept : clientfd(clientfd), ring(ring), buffer(buf) {
+	WriteAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ring(ring), buffer(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 3;
 #endif
@@ -129,14 +125,14 @@ class WriteAwaiter : public Awaiter {
 		std::copy(response.begin(), response.begin() + response.size(), buffer->begin());
 
 		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_sqe_set_data(sqe, handle.address());
-		// io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 		io_uring_prep_write(sqe, clientfd, buffer, response.size(), 0);
+		io_uring_sqe_set_data(sqe, handle.address());
+		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 
-		// sqe = io_uring_get_sqe(ring);
-		// io_uring_sqe_set_data(sqe, nullptr);
-		// io_uring_sqe_set_flags(sqe, 0);
-		// io_uring_prep_link_timeout(sqe, &ts, 0);
+		sqe = io_uring_get_sqe(ring);
+		io_uring_prep_link_timeout(sqe, ts, 0);
+		io_uring_sqe_set_data(sqe, nullptr);
+		io_uring_sqe_set_flags(sqe, 0);
 
 		io_uring_submit(ring);
 	}
@@ -146,10 +142,7 @@ class WriteAwaiter : public Awaiter {
 	int clientfd;
 	io_uring *ring;
 	std::array<char, BUFFER_LEN> *buffer;
-	struct __kernel_timespec ts = {
-		1,
-		0,
-	};
+	__kernel_timespec *ts;
 };
 
 class CloseAwaiter : public Awaiter {

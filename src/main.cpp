@@ -6,15 +6,18 @@
 #include <liburing.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <unordered_map>
 
 Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 	unsigned int exchanges = 0;
 	std::array<char, BUFFER_LEN> buffer{};
 	std::array<char, BUFFER_LEN> write_buffer{};
+	__kernel_timespec ts{
+		1,
+		0,
+	};
 
 	while (++exchanges < MAX_NUM_EXCHANGES) {
-		int res = co_await RecvAwaiter(clientfd, ring, &buffer);
+		int res = co_await RecvAwaiter(clientfd, ring, &buffer, &ts);
 		if (res <= 0) {
 			break;
 		}
@@ -27,11 +30,10 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 		// 	break;
 		// }
 
-		res = co_await WriteAwaiter(clientfd, ring, &write_buffer);
+		res = co_await WriteAwaiter(clientfd, ring, &write_buffer, &ts);
 		if (res < 0) {
 			break;
 		}
-		// break;
 	}
 	co_await CloseAwaiter(clientfd, ring);
 }
@@ -51,13 +53,19 @@ void eventLoop(io_uring *ring) noexcept {
 	while (true) {
 		io_uring_wait_cqe(ring, &cqe);
 		void *data = io_uring_cqe_get_data(cqe);
+		int res = cqe->res;
 		io_uring_cqe_seen(ring, cqe);
 
-		auto handle = std::coroutine_handle<Promise>::from_address(data);
-		if (handle) {
-			handle.promise().awaiter->setRes(cqe->res);
-			handle.resume();
+		if (!data) {
+			fprintf(stderr, "res: %d  (timeout/null)\n", res);
+			continue;
+		} else {
+			std::cout << "res: " << res << std::endl;
 		}
+
+		auto handle = std::coroutine_handle<Promise>::from_address(data);
+		handle.promise().awaiter->setRes(res);
+		handle.resume();
 	}
 }
 
