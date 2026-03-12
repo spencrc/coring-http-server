@@ -2,13 +2,15 @@
 #include "parser.hpp"
 #include "socket.hpp"
 #include "task.hpp"
+#include <chrono>
 #include <iostream>
 #include <liburing.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
+
+namespace sc = std::chrono;
 
 Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 	unsigned int exchanges = 0;
+	auto endtime = sc::steady_clock::now() + sc::seconds(KEEPALIVE_TIMEOUT);
 	std::array<char, BUFFER_LEN> buffer{};
 	std::array<char, BUFFER_LEN> write_buffer{};
 	__kernel_timespec ts{
@@ -16,7 +18,8 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 		0,
 	};
 
-	while (++exchanges < MAX_NUM_EXCHANGES) {
+	while (++exchanges < KEEPALIVE_REQUESTS and
+		   sc::steady_clock::now() < endtime) {
 		int res = co_await RecvAwaiter(clientfd, ring, &buffer, &ts);
 		if (res <= 0) {
 			break;
