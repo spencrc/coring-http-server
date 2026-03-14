@@ -2,7 +2,9 @@
 
 #include "base_parser.hpp"
 #include "llhttp.h"
-#include "task.hpp"
+#include <coroutine>
+
+struct Promise;
 
 class ClientReqParser : public BaseParser {
   public:

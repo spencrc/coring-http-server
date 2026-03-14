@@ -40,10 +40,10 @@ enum class ParserType {
 	XX(on_body)
 
 #define WRAPPER_CALLBACK_HANDLE(name) \
-	std::function<int()> name;
+	std::function<int()> name = []() { return 0; };
 
 #define WRAPPER_DATA_CALLBACK_HANDLE(name) \
-	std::function<int(std::string)> name;
+	std::function<int(std::string)> name = [](std::string) { return 0; };
 
 #define CALLBACK_BRIDGE(name)                            \
 	static int cb_##name(llhttp_t *p) {                  \
@@ -62,14 +62,14 @@ enum class ParserType {
 class BaseParser {
   public:
 	BaseParser(llhttp_type_t t) noexcept {
-		parser.data = this;
-
 		llhttp_settings_init(&settings);
 
 		CALLBACK_LIST(SET_ANY_BRIDGE)
 		DATA_CALLBACK_LIST(SET_ANY_BRIDGE)
 
 		llhttp_init(&parser, t, &settings);
+
+		parser.data = this;
 	}
 
 	llhttp_errno_t execute(std::string data) noexcept;

@@ -1,4 +1,5 @@
 #pragma once
+#include "client_req_parser.hpp"
 #include "constants.hpp"
 #include <array>
 #include <coroutine>
@@ -106,6 +107,26 @@ class RecvAwaiter : public Awaiter {
 	__kernel_timespec *ts;
 };
 
+class ParseAwaiter : public Awaiter {
+  public:
+	ParseAwaiter(io_uring *ring, std::string req) noexcept : ring(ring), req(req) {
+#ifdef DEBUG_MODE
+		id = 3;
+#endif
+	}
+
+	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+		ClientReqParser p(handle);
+		p.execute(req);
+	}
+
+	void await_resume() const noexcept {}
+
+  private:
+	io_uring *ring;
+	std::string req;
+};
+
 const std::string response = "HTTP/1.1 200 \r\n"
 							 "Content-Length: 12 \r\n"
 							 "Content-Type: text/html \r\n"
@@ -116,7 +137,7 @@ class WriteAwaiter : public Awaiter {
   public:
 	WriteAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ring(ring), buffer(buf), ts(ts) {
 #ifdef DEBUG_MODE
-		id = 3;
+		id = 4;
 #endif
 	}
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
@@ -149,7 +170,7 @@ class CloseAwaiter : public Awaiter {
   public:
 	CloseAwaiter(int clientfd, io_uring *ring) noexcept : clientfd(clientfd), ring(ring) {
 #ifdef DEBUG_MODE
-		id = 4;
+		id = 5;
 #endif
 	}
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {

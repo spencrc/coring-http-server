@@ -24,13 +24,7 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 			break;
 		}
 
-		// needs to be handled async!
-		// BaseParser p(HTTP_REQUEST);
-		// const int parser_errno = p.execute();
-		// if (parser_errno != HPE_OK) {
-		// 	// Malformed request! We cannot do anything with this.
-		// 	break;
-		// }
+		co_await ParseAwaiter(ring, buffer.data());
 
 		res = co_await WriteAwaiter(clientfd, ring, &write_buffer, &ts);
 		if (res < 0) {
