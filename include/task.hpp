@@ -1,10 +1,8 @@
 #pragma once
 #include "client_req_parser.hpp"
-#include "constants.hpp"
-#include <array>
+#include "evented.hpp"
 #include <coroutine>
 #include <exception>
-#include <liburing.h>
 #include <string>
 
 #ifdef DEBUG_MODE
@@ -52,7 +50,7 @@ class Awaiter {
 
 class AcceptAwaiter : public Awaiter {
   public:
-	AcceptAwaiter(int sockfd, io_uring *ring) noexcept : sockfd(sockfd), ring(ring) {
+	AcceptAwaiter(int sockfd, evented *ev) noexcept : sockfd(sockfd), ev(ev) {
 #ifdef DEBUG_MODE
 		id = 1;
 #endif
@@ -60,10 +58,7 @@ class AcceptAwaiter : public Awaiter {
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
-		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_prep_accept(sqe, sockfd, nullptr, nullptr, 0);
-		io_uring_sqe_set_data(sqe, handle.address());
-		io_uring_submit(ring);
+		ev->submit_accept(sockfd, handle);
 	}
 	int await_resume() const noexcept {
 		return getRes();
@@ -71,12 +66,12 @@ class AcceptAwaiter : public Awaiter {
 
   private:
 	int sockfd;
-	io_uring *ring;
+	evented *ev;
 };
 
 class RecvAwaiter : public Awaiter {
   public:
-	RecvAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ring(ring), buffer(buf), ts(ts) {
+	RecvAwaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 2;
 #endif
@@ -84,17 +79,7 @@ class RecvAwaiter : public Awaiter {
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
-		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_prep_recv(sqe, clientfd, buffer, buffer->size(), 0);
-		io_uring_sqe_set_data(sqe, handle.address());
-		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
-
-		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_link_timeout(sqe, ts, 0);
-		io_uring_sqe_set_data(sqe, nullptr);
-		io_uring_sqe_set_flags(sqe, 0);
-
-		io_uring_submit(ring);
+		ev->submit_expiring_read(clientfd, buf, handle, ts);
 	}
 	int await_resume() const noexcept {
 		return getRes();
@@ -102,14 +87,14 @@ class RecvAwaiter : public Awaiter {
 
   private:
 	int clientfd;
-	io_uring *ring;
-	std::array<char, BUFFER_LEN> *buffer;
+	evented *ev;
+	std::array<char, BUFFER_LEN> *buf;
 	__kernel_timespec *ts;
 };
 
 class ParseAwaiter : public Awaiter {
   public:
-	ParseAwaiter(io_uring *ring, std::string req) noexcept : ring(ring), req(req) {
+	ParseAwaiter(std::string req) noexcept : req(req) {
 #ifdef DEBUG_MODE
 		id = 3;
 #endif
@@ -123,7 +108,6 @@ class ParseAwaiter : public Awaiter {
 	void await_resume() const noexcept {}
 
   private:
-	io_uring *ring;
 	std::string req;
 };
 
@@ -135,7 +119,7 @@ const std::string response = "HTTP/1.1 200 \r\n"
 
 class WriteAwaiter : public Awaiter {
   public:
-	WriteAwaiter(int clientfd, io_uring *ring, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ring(ring), buffer(buf), ts(ts) {
+	WriteAwaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 4;
 #endif
@@ -143,32 +127,22 @@ class WriteAwaiter : public Awaiter {
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
-		std::copy(response.begin(), response.begin() + response.size(), buffer->begin());
+		std::copy(response.begin(), response.begin() + response.size(), buf->begin());
 
-		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_prep_write(sqe, clientfd, buffer, response.size(), 0);
-		io_uring_sqe_set_data(sqe, handle.address());
-		io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
-
-		sqe = io_uring_get_sqe(ring);
-		io_uring_prep_link_timeout(sqe, ts, 0);
-		io_uring_sqe_set_data(sqe, nullptr);
-		io_uring_sqe_set_flags(sqe, 0);
-
-		io_uring_submit(ring);
+		ev->submit_expiring_write(clientfd, buf, response.size(), handle, ts);
 	}
 	int await_resume() const noexcept { return getRes(); }
 
   private:
 	int clientfd;
-	io_uring *ring;
-	std::array<char, BUFFER_LEN> *buffer;
+	evented *ev;
+	std::array<char, BUFFER_LEN> *buf;
 	__kernel_timespec *ts;
 };
 
 class CloseAwaiter : public Awaiter {
   public:
-	CloseAwaiter(int clientfd, io_uring *ring) noexcept : clientfd(clientfd), ring(ring) {
+	CloseAwaiter(int clientfd, evented *ev) noexcept : clientfd(clientfd), ev(ev) {
 #ifdef DEBUG_MODE
 		id = 5;
 #endif
@@ -176,15 +150,11 @@ class CloseAwaiter : public Awaiter {
 	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
-		io_uring_sqe *sqe = io_uring_get_sqe(ring);
-		io_uring_sqe_set_data(sqe, handle.address());
-
-		io_uring_prep_close(sqe, clientfd);
-		io_uring_submit(ring);
+		ev->submit_close(clientfd, handle);
 	}
 	int await_resume() const noexcept { return getRes(); }
 
   private:
 	int clientfd;
-	io_uring *ring;
+	evented *ev;
 };

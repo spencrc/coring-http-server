@@ -19,12 +19,6 @@ class Socket {
 	// When a connection arrives, open a new socket to communicate with it,
 	int accept();
 
-	// satisfying rule of five
-	Socket(const Socket &other) = delete;			 // copy constructor
-	Socket(Socket &&other) = delete;				 // move constructor
-	Socket &operator=(const Socket &other) = delete; // copy asssignment
-	Socket &operator=(Socket &&other) = delete;		 // move assignment
-
   private:
 	int sockfd;
 	int domain;

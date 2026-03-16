@@ -1,5 +1,5 @@
-CC?=clang
-CXX?=clang++
+CC=clang
+CXX=clang++
 
 EXE_NAME=server
 OUTPUT_DIR=bin/release

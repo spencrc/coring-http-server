@@ -1,4 +1,5 @@
 #include "constants.hpp"
+#include "evented.hpp"
 #include "socket.hpp"
 #include "task.hpp"
 #include <chrono>
@@ -7,10 +8,10 @@
 
 namespace sc = std::chrono;
 
-Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
+Task<Promise> handleConnectionAsync(int clientfd, evented *ev) noexcept {
 	unsigned int exchanges = 0;
 	auto endtime = sc::steady_clock::now() + sc::seconds(KEEPALIVE_TIMEOUT);
-	std::array<char, BUFFER_LEN> buffer{};
+	std::array<char, BUFFER_LEN> read_buffer{};
 	std::array<char, BUFFER_LEN> write_buffer{};
 	__kernel_timespec ts{
 		1,
@@ -19,38 +20,38 @@ Task<Promise> handleConnectionAsync(int clientfd, io_uring *ring) noexcept {
 
 	while (++exchanges < KEEPALIVE_REQUESTS and
 		   sc::steady_clock::now() < endtime) {
-		int res = co_await RecvAwaiter(clientfd, ring, &buffer, &ts);
+		int res = co_await RecvAwaiter(clientfd, ev, &read_buffer, &ts);
 		if (res <= 0) {
 			break;
 		}
 
-		co_await ParseAwaiter(ring, buffer.data());
+		co_await ParseAwaiter(read_buffer.data());
 
-		res = co_await WriteAwaiter(clientfd, ring, &write_buffer, &ts);
+		res = co_await WriteAwaiter(clientfd, ev, &write_buffer, &ts);
 		if (res < 0) {
 			break;
 		}
 	}
-	co_await CloseAwaiter(clientfd, ring);
+	co_await CloseAwaiter(clientfd, ev);
 }
 
-Task<Promise> serveAsync(int sockfd, io_uring *ring) noexcept {
+Task<Promise> serveAsync(int sockfd, evented *ev) noexcept {
 	while (true) {
-		int clientfd = co_await AcceptAwaiter(sockfd, ring);
+		int clientfd = co_await AcceptAwaiter(sockfd, ev);
 		if (clientfd >= 0) {
-			handleConnectionAsync(clientfd, ring);
+			handleConnectionAsync(clientfd, ev);
 		}
 	}
 }
 
-void eventLoop(io_uring *ring) noexcept {
+void eventLoop(evented *ev) noexcept {
 	io_uring_cqe *cqe = nullptr;
 
 	while (true) {
-		io_uring_wait_cqe(ring, &cqe);
+		ev->wait_cqe(&cqe);
 		void *data = io_uring_cqe_get_data(cqe);
 		int res = cqe->res;
-		io_uring_cqe_seen(ring, cqe);
+		ev->cqe_seen(cqe);
 
 		if (!data) {
 			fprintf(stderr, "res: %d  (timeout/null)\n", res);
@@ -66,8 +67,7 @@ void eventLoop(io_uring *ring) noexcept {
 }
 
 int main() {
-	io_uring ring{};
-	io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
+	evented ev(QUEUE_DEPTH);
 
 	auto sock = Socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 
@@ -77,11 +77,9 @@ int main() {
 	sock.bind(PORT, INADDR_ANY);
 	sock.listen(KERNEL_BACKLOG);
 
-	auto serve = serveAsync(sock.getFd(), &ring);
+	auto serve = serveAsync(sock.getFd(), &ev);
 
-	eventLoop(&ring);
-
-	io_uring_queue_exit(&ring);
+	eventLoop(&ev);
 
 	return 0;
 }
