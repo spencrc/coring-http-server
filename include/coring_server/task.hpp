@@ -5,12 +5,6 @@
 #include <exception>
 #include <string>
 
-#ifdef DEBUG_MODE
-constexpr bool AWAITER_DEBUG = true;
-#else
-constexpr bool AWAITER_DEBUG = false;
-#endif
-
 template <typename T = void>
 class task {
   public:
