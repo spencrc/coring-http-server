@@ -24,7 +24,7 @@ int evented::submit_accept(int sockfd, std::coroutine_handle<> handle) {
 	return io_uring_submit(&ring);
 }
 
-int evented::submit_expiring_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std::coroutine_handle<> handle, __kernel_timespec *ts) {
+int evented::submit_expiring_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std::coroutine_handle<> handle, kernel_timespec *ts) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_recv(sqe, clientfd, buf, buf->size(), 0);
 	io_uring_sqe_set_data(sqe, handle.address());
@@ -38,7 +38,7 @@ int evented::submit_expiring_read(int clientfd, std::array<char, BUFFER_LEN> *bu
 	return io_uring_submit(&ring);
 }
 
-int evented::submit_expiring_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, std::coroutine_handle<> handle, __kernel_timespec *ts) {
+int evented::submit_expiring_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, std::coroutine_handle<> handle, kernel_timespec *ts) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_write(sqe, clientfd, buf, write_len, 0);
 	io_uring_sqe_set_data(sqe, handle.address());

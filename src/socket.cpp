@@ -12,7 +12,7 @@ socket::socket(address_family domain, int type, int protocol) :
 		throw std::system_error(errno, std::generic_category(), "Failed to create socket");
 }
 
-int socket::getFd() {
+int socket::get_fd() const {
 	return sockfd;
 }
 

@@ -4,6 +4,7 @@
 #include <coroutine>
 #include <liburing.h>
 
+using kernel_timespec = __kernel_timespec;
 constexpr unsigned int BUFFER_LEN = 1024;
 
 class evented {
@@ -18,9 +19,9 @@ class evented {
 
 	int submit_accept(int sockfd, std::coroutine_handle<> handle);
 
-	int submit_expiring_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std::coroutine_handle<> handle, __kernel_timespec *ts);
+	int submit_expiring_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std::coroutine_handle<> handle, kernel_timespec *ts);
 
-	int submit_expiring_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, std::coroutine_handle<> handle, __kernel_timespec *ts);
+	int submit_expiring_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, std::coroutine_handle<> handle, kernel_timespec *ts);
 
 	int submit_close(int clientfd, std::coroutine_handle<> handle);
 

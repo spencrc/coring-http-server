@@ -32,7 +32,7 @@ task<promise> server::handle_connection_async(int clientfd) noexcept {
 	auto endtime = sc::steady_clock::now() + sc::seconds(KEEPALIVE_TIMEOUT);
 	std::array<char, BUFFER_LEN> read_buffer{};
 	std::array<char, BUFFER_LEN> write_buffer{};
-	__kernel_timespec ts{
+	kernel_timespec ts{
 		1,
 		0,
 	};
@@ -56,7 +56,7 @@ task<promise> server::handle_connection_async(int clientfd) noexcept {
 
 task<promise> server::serve_async() noexcept {
 	while (true) {
-		int clientfd = co_await accept_awaiter(sock.getFd(), &ev);
+		int clientfd = co_await accept_awaiter(sock.get_fd(), &ev);
 		if (clientfd >= 0) {
 			handle_connection_async(clientfd);
 		}
@@ -84,7 +84,7 @@ void server::event_loop() noexcept {
 		// }
 
 		auto handle = std::coroutine_handle<promise>::from_address(data);
-		handle.promise().awaiter->setRes(res);
+		handle.promise().awaiter->set_res(res);
 		handle.resume();
 	}
 }

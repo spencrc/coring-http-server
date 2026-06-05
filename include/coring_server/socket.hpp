@@ -20,7 +20,7 @@ namespace coring_server {
     	// See: https://github.com/behnamasadi/cpp_tutorials/blob/master/docs/RAII.md
     	socket(address_family domain, int type, int protocol);
     	~socket() noexcept;
-    	int getFd();
+    	int get_fd() const;
     	void bind(int port, address interface);
     	void setsockopt(int level, int optname, const void *optval, socklen_t optlen);
 
