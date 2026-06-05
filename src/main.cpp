@@ -1,15 +1,14 @@
 #include "constants.hpp"
 #include "coring_server/server.hpp"
+#include "coring_server/socket.hpp"
 #include <liburing.h>
 
 int main() {
 	const coring_server::server_options opts{
 		.port = PORT,
-		.interface = INADDR_ANY,
+		.interface = coring_server::address::ANY,
+		.domain = coring_server::address_family::IPV4,
 		.queue_depth = QUEUE_DEPTH,
-		.domain = AF_INET,
-		.type = SOCK_STREAM | SOCK_NONBLOCK,
-		.protocol = IPPROTO_TCP,
 		.max_connections = KERNEL_BACKLOG,
 	};
 

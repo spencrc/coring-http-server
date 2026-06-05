@@ -6,11 +6,13 @@ using namespace coring_server;
 
 namespace sc = std::chrono;
 
-server::server(const server_options opts) : port(opts.port),
-											interface(opts.interface),
-											max_connections(opts.max_connections),
-											sock(Socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
-											ev(opts.queue_depth) {
+server::server(const server_options opts) :
+	sock(socket(opts.domain, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
+	ev(opts.queue_depth),
+	port(opts.port),
+	interface(opts.interface),
+	max_connections(opts.max_connections)
+{
 	constexpr unsigned int flag = 1;
 	sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 	sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
@@ -20,12 +22,12 @@ void server::run() {
 	sock.bind(port, interface);
 	sock.listen(max_connections);
 
-	auto serve = serveAsync();
+	[[maybe_unused]] auto serve = serve_async();
 
-	eventLoop();
+	event_loop();
 }
 
-Task<Promise> server::handleConnectionAsync(int clientfd) noexcept {
+task<promise> server::handle_connection_async(int clientfd) noexcept {
 	unsigned int exchanges = 0;
 	auto endtime = sc::steady_clock::now() + sc::seconds(KEEPALIVE_TIMEOUT);
 	std::array<char, BUFFER_LEN> read_buffer{};
@@ -37,31 +39,31 @@ Task<Promise> server::handleConnectionAsync(int clientfd) noexcept {
 
 	while (++exchanges < KEEPALIVE_REQUESTS and
 		   sc::steady_clock::now() < endtime) {
-		int res = co_await RecvAwaiter(clientfd, &ev, &read_buffer, &ts);
+		int res = co_await recv_awaiter(clientfd, &ev, &read_buffer, &ts);
 		if (res <= 0) {
 			break;
 		}
 
-		co_await ParseAwaiter(read_buffer.data());
+		co_await parse_awaiter(read_buffer.data());
 
-		res = co_await WriteAwaiter(clientfd, &ev, &write_buffer, &ts);
+		res = co_await write_awaiter(clientfd, &ev, &write_buffer, &ts);
 		if (res < 0) {
 			break;
 		}
 	}
-	co_await CloseAwaiter(clientfd, &ev);
+	co_await close_awaiter(clientfd, &ev);
 }
 
-Task<Promise> server::serveAsync() noexcept {
+task<promise> server::serve_async() noexcept {
 	while (true) {
-		int clientfd = co_await AcceptAwaiter(sock.getFd(), &ev);
+		int clientfd = co_await accept_awaiter(sock.getFd(), &ev);
 		if (clientfd >= 0) {
-			handleConnectionAsync(clientfd);
+			handle_connection_async(clientfd);
 		}
 	}
 }
 
-void server::eventLoop() noexcept {
+void server::event_loop() noexcept {
 	io_uring_cqe *cqe = nullptr;
 
 	while (true) {
@@ -81,7 +83,7 @@ void server::eventLoop() noexcept {
 		// 	std::cout << "res: " << res << std::endl;
 		// }
 
-		auto handle = std::coroutine_handle<Promise>::from_address(data);
+		auto handle = std::coroutine_handle<promise>::from_address(data);
 		handle.promise().awaiter->setRes(res);
 		handle.resume();
 	}

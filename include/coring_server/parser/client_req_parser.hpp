@@ -4,11 +4,11 @@
 #include "llhttp.h"
 #include <coroutine>
 
-struct Promise;
+struct promise;
 
 class ClientReqParser : public BaseParser {
   public:
-	ClientReqParser(std::coroutine_handle<Promise> handle) : BaseParser(HTTP_REQUEST), handle(handle) {
+	ClientReqParser(std::coroutine_handle<promise> handle) : BaseParser(HTTP_REQUEST), handle(handle) {
 		on_message_complete = [this]() {
 			this->handle.resume();
 			return 0;
@@ -16,5 +16,5 @@ class ClientReqParser : public BaseParser {
 	}
 
   private:
-	std::coroutine_handle<Promise> handle;
+	std::coroutine_handle<promise> handle;
 };

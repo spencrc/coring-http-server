@@ -12,29 +12,29 @@ constexpr bool AWAITER_DEBUG = false;
 #endif
 
 template <typename T = void>
-class Task {
+class task {
   public:
 	std::coroutine_handle<T> h;
 	using promise_type = T;
 };
 
-class Awaiter;
-struct Promise {
-	Task<Promise> get_return_object() {
-		return Task<Promise>{std::coroutine_handle<Promise>::from_promise(*this)};
+class awaiter;
+struct promise {
+	task<promise> get_return_object() {
+		return task<promise>{std::coroutine_handle<promise>::from_promise(*this)};
 	}
 	std::suspend_never initial_suspend() noexcept { return {}; }
 	std::suspend_never final_suspend() noexcept { return {}; }
 	void return_void() noexcept {}
 	void unhandled_exception() noexcept { std::terminate(); }
-	Awaiter *awaiter = nullptr;
+	awaiter *awaiter = nullptr;
 	int exchanges = 0;
 };
 
-class Awaiter {
+class awaiter {
   public:
 	virtual bool await_ready() const noexcept { return false; }
-	virtual void await_suspend([[maybe_unused]] std::coroutine_handle<Promise> handle) noexcept {}
+	virtual void await_suspend([[maybe_unused]] std::coroutine_handle<promise> handle) noexcept {}
 	void setRes(int res) noexcept {
 		this->res = res;
 	}
@@ -48,14 +48,14 @@ class Awaiter {
 	int res = -1;
 };
 
-class AcceptAwaiter : public Awaiter {
+class accept_awaiter : public awaiter {
   public:
-	AcceptAwaiter(int sockfd, evented *ev) noexcept : sockfd(sockfd), ev(ev) {
+	accept_awaiter(int sockfd, evented *ev) noexcept : sockfd(sockfd), ev(ev) {
 #ifdef DEBUG_MODE
 		id = 1;
 #endif
 	}
-	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
 		ev->submit_accept(sockfd, handle);
@@ -69,14 +69,14 @@ class AcceptAwaiter : public Awaiter {
 	evented *ev;
 };
 
-class RecvAwaiter : public Awaiter {
+class recv_awaiter : public awaiter {
   public:
-	RecvAwaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
+	recv_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 2;
 #endif
 	}
-	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
 		ev->submit_expiring_read(clientfd, buf, handle, ts);
@@ -92,15 +92,15 @@ class RecvAwaiter : public Awaiter {
 	__kernel_timespec *ts;
 };
 
-class ParseAwaiter : public Awaiter {
+class parse_awaiter : public awaiter {
   public:
-	ParseAwaiter(std::string req) noexcept : req(req) {
+	parse_awaiter(std::string req) noexcept : req(req) {
 #ifdef DEBUG_MODE
 		id = 3;
 #endif
 	}
 
-	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept override {
 		ClientReqParser p(handle);
 		p.execute(req);
 	}
@@ -117,14 +117,14 @@ const std::string response = "HTTP/1.1 200 \r\n"
 							 "Connection: keep-alive \r\n\r\n"
 							 "Hello World!";
 
-class WriteAwaiter : public Awaiter {
+class write_awaiter : public awaiter {
   public:
-	WriteAwaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
+	write_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, __kernel_timespec *ts) noexcept : clientfd(clientfd), ev(ev), buf(buf), ts(ts) {
 #ifdef DEBUG_MODE
 		id = 4;
 #endif
 	}
-	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
 		std::copy(response.begin(), response.begin() + response.size(), buf->begin());
@@ -140,14 +140,14 @@ class WriteAwaiter : public Awaiter {
 	__kernel_timespec *ts;
 };
 
-class CloseAwaiter : public Awaiter {
+class close_awaiter : public awaiter {
   public:
-	CloseAwaiter(int clientfd, evented *ev) noexcept : clientfd(clientfd), ev(ev) {
+	close_awaiter(int clientfd, evented *ev) noexcept : clientfd(clientfd), ev(ev) {
 #ifdef DEBUG_MODE
 		id = 5;
 #endif
 	}
-	void await_suspend(std::coroutine_handle<Promise> handle) noexcept override {
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept override {
 		handle.promise().awaiter = this;
 
 		ev->submit_close(clientfd, handle);
