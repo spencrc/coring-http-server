@@ -1,9 +1,10 @@
 #pragma once
 
-#include "constants.hpp"
 #include <array>
 #include <coroutine>
 #include <liburing.h>
+
+constexpr unsigned int BUFFER_LEN = 1024;
 
 class evented {
   public:

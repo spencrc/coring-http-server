@@ -1,4 +1,4 @@
-#include "socket.hpp"
+#include "coring_server/socket.hpp"
 #include <sys/socket.h>
 #include <system_error>
 #include <unistd.h>
@@ -27,8 +27,8 @@ void Socket::setsockopt(int level, int optname, const void *optval, socklen_t op
 		throw std::system_error(errno, std::generic_category(), "Failed to set socket option");
 }
 
-void Socket::listen(int maxConnections) {
-	if (::listen(sockfd, maxConnections) == -1)
+void Socket::listen(unsigned int maxConnections) {
+	if (::listen(sockfd, static_cast<int>(maxConnections)) == -1)
 		throw std::system_error(errno, std::generic_category(), "Failed to listen on socket");
 }
 

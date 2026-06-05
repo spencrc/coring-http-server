@@ -1,25 +1,24 @@
-#include "server.hpp"
+#include "coring_server/server.hpp"
+#include "constants.hpp"
 #include <chrono>
 
 using namespace coring_server;
 
 namespace sc = std::chrono;
 
-server::server(const server_options opts) :
-    port(opts.port),
-    interface(opts.interface),
-    max_connections(opts.max_connections),
-    sock(Socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
-    ev(opts.queue_depth)
-{
+server::server(const server_options opts) : port(opts.port),
+											interface(opts.interface),
+											max_connections(opts.max_connections),
+											sock(Socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
+											ev(opts.queue_depth) {
 	constexpr unsigned int flag = 1;
 	sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 	sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
 }
 
 void server::run() {
-    sock.bind(PORT, INADDR_ANY);
-	sock.listen(KERNEL_BACKLOG);
+	sock.bind(port, interface);
+	sock.listen(max_connections);
 
 	auto serve = serveAsync();
 

@@ -13,7 +13,7 @@ class Socket {
 
 	// Prepare to accept connections on socket FD.
 	// maxConnection # of requests will be queued before further requests are refused.
-	void listen(int maxConnections);
+	void listen(unsigned int maxConnections);
 
 	// Await a connection on socket FD.
 	// When a connection arrives, open a new socket to communicate with it,
