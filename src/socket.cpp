@@ -5,7 +5,7 @@
 
 using namespace coring_server;
 
-socket::socket(address_family domain, int type, int protocol) :
+socket::socket(address_format domain, int type, int protocol) :
 	sockfd(::socket(static_cast<int>(domain), type, protocol)),
 	domain(static_cast<int>(domain)) {
 	if (sockfd < 0)

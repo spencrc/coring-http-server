@@ -9,7 +9,7 @@ namespace coring_server {
         BROADCAST = INADDR_BROADCAST,
     };
 
-    enum class address_family : unsigned long {
+    enum class address_format : unsigned long {
         IPV4 = AF_INET,
         IPV6 = AF_INET6,
         UNIX = AF_UNIX,
@@ -18,7 +18,7 @@ namespace coring_server {
     class socket {
     public:
     	// See: https://github.com/behnamasadi/cpp_tutorials/blob/master/docs/RAII.md
-    	socket(address_family domain, int type, int protocol);
+    	socket(address_format domain, int type, int protocol);
     	~socket() noexcept;
     	int get_fd() const;
     	void bind(int port, address interface);

@@ -1,17 +1,18 @@
 #include "coring_server/server.hpp"
-#include "constants.hpp"
 #include <chrono>
 
 using namespace coring_server;
 
 namespace sc = std::chrono;
 
-server::server(const server_options opts) :
+server::server(address interface, const server_options& opts) :
 	sock(socket(opts.domain, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
 	ev(opts.queue_depth),
 	port(opts.port),
-	interface(opts.interface),
-	max_connections(opts.max_connections)
+	interface(interface),
+	max_connections(opts.max_connections),
+	keepalive_requests(opts.keepalive_requests),
+	keepalive_timeout(opts.keepalive_timeout)
 {
 	constexpr unsigned int flag = 1;
 	sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
@@ -29,15 +30,12 @@ void server::run() {
 
 task<promise> server::handle_connection_async(int clientfd) noexcept {
 	unsigned int exchanges = 0;
-	auto endtime = sc::steady_clock::now() + sc::seconds(KEEPALIVE_TIMEOUT);
+	auto endtime = sc::steady_clock::now() + sc::seconds(keepalive_timeout);
 	std::array<char, BUFFER_LEN> read_buffer{};
 	std::array<char, BUFFER_LEN> write_buffer{};
-	kernel_timespec ts{
-		1,
-		0,
-	};
+	kernel_timespec ts{ .tv_sec = 1, .tv_nsec = 0 };
 
-	while (++exchanges < KEEPALIVE_REQUESTS and
+	while (++exchanges < keepalive_requests and
 		   sc::steady_clock::now() < endtime) {
 		int res = co_await recv_awaiter(clientfd, &ev, &read_buffer, &ts);
 		if (res <= 0) {
