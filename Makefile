@@ -5,11 +5,13 @@ EXE_NAME=server
 BUILD ?= release
 ifeq ($(BUILD), release)
 	OUTPUT_DIR=bin/release
-	CFLAGS=-O3 -Wall -Wextra
+	CFLAGS=-O3
+	WARN_FLAGS=-Wall -Wextra
 	LDFLAGS=
 else
 	OUTPUT_DIR=bin/debug
-	CFLAGS=-g -O0 -Wall -Wextra -Wpedantic
+	CFLAGS=-g -O0
+	WARN_FLAGS=-Wall -Wextra -Wpedantic
 	LDFLAGS=-fsanitize=address
 endif
 
@@ -41,7 +43,7 @@ $(OUTPUT_DIR)/$(EXE_NAME): $(APP_OBJECTS) $(OUTPUT_DIR)/libllhttp.a | $(OUTPUT_D
 -include $(DEPENDS)
 
 $(OUTPUT_DIR)/%.o: src/%.cpp | $(OUTPUT_DIR)
-	$(CXX) -std=c++20 $(CFLAGS) -Ivendor/llhttp -Iinclude -MMD -MP -c $< -o $@
+	$(CXX) -std=c++20 $(CFLAGS) $(WARN_FLAGS) -Ivendor/llhttp -Iinclude -MMD -MP -c $< -o $@
 
 ################################################################
 # LLHTTP
@@ -54,4 +56,4 @@ $(OUTPUT_DIR)/libllhttp.a: $(LLHTTP_OBJECTS) | $(OUTPUT_DIR)
 	ar rcs $@ $^
 
 $(OUTPUT_DIR)/%.o: vendor/llhttp/%.c | $(OUTPUT_DIR)
-	$(CC) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
