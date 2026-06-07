@@ -1,6 +1,6 @@
 #pragma once
 
-#include "coring_server/evented.hpp"
+#include "coring_server/io_uring_ctx.hpp"
 #include "coring_server/server.hpp"
 #include "coring_server/socket.hpp"
 #include "coring_server/task.hpp"
@@ -13,7 +13,7 @@ class server::worker {
 
   private:
 	socket sock;
-	evented ev;
+	io_uring_ctx ev;
 	unsigned short port;
 	address interface;
 	unsigned int max_connections;

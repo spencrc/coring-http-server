@@ -8,11 +8,11 @@ namespace coring_server {
 using kernel_timespec = __kernel_timespec;
 constexpr unsigned int BUFFER_LEN = 1024;
 
-class evented {
+class io_uring_ctx {
   public:
-	evented(const unsigned int queue_depth);
-	evented(const unsigned int queue_depth, io_uring_params *params);
-	~evented();
+	io_uring_ctx(const unsigned int queue_depth);
+	io_uring_ctx(const unsigned int queue_depth, io_uring_params *params);
+	~io_uring_ctx();
 	int wait_cqe(io_uring_cqe **cqe);
 	void cqe_seen(io_uring_cqe *cqe);
 	int submit_accept(int sockfd, std::coroutine_handle<> handle);

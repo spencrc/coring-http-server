@@ -1,5 +1,5 @@
 #pragma once
-#include "evented.hpp"
+#include "io_uring_ctx.hpp"
 #include <coroutine>
 #include <exception>
 #include <string>
@@ -40,24 +40,24 @@ class awaiter {
 
 class accept_awaiter : public awaiter {
   public:
-	accept_awaiter(int sockfd, evented *ev) noexcept;
+	accept_awaiter(int sockfd, io_uring_ctx *ev) noexcept;
 	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
 	int sockfd;
-	evented *ev;
+	io_uring_ctx *ev;
 };
 
 class recv_awaiter : public awaiter {
   public:
-	recv_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
+	recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
 	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
 	int clientfd;
-	evented *ev;
+	io_uring_ctx *ev;
 	std::array<char, BUFFER_LEN> *buf;
 	kernel_timespec *ts;
 };
@@ -74,25 +74,25 @@ class parse_awaiter : public awaiter {
 
 class write_awaiter : public awaiter {
   public:
-	write_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
+	write_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
 	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
 	int clientfd;
-	evented *ev;
+	io_uring_ctx *ev;
 	std::array<char, BUFFER_LEN> *buf;
 	kernel_timespec *ts;
 };
 
 class close_awaiter : public awaiter {
   public:
-	close_awaiter(int clientfd, evented *ev) noexcept;
+	close_awaiter(int clientfd, io_uring_ctx *ev) noexcept;
 	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
 	int clientfd;
-	evented *ev;
+	io_uring_ctx *ev;
 };
 } // namespace coring_server
