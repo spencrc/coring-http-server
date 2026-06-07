@@ -1,7 +1,18 @@
 #include "coring_server/evented.hpp"
+#include <system_error>
+
+using namespace coring_server;
 
 evented::evented(const unsigned int queue_depth) {
-	io_uring_queue_init(queue_depth, &ring, 0);
+	int ret = io_uring_queue_init(queue_depth, &ring, 0);
+	if (ret < 0)
+		throw std::system_error(-ret, std::generic_category(), "Failed to initialize io_uring submissions & completion queue");
+}
+
+evented::evented(const unsigned int queue_depth, io_uring_params *params) {
+	int ret = io_uring_queue_init_params(queue_depth, &ring, params);
+	if (ret < 0)
+		throw std::system_error(-ret, std::generic_category(), "Failed to initialize io_uring submissions & completion queue with params");
 }
 
 evented::~evented() {
