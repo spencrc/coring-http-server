@@ -11,10 +11,8 @@ int awaiter::get_res() const noexcept {
 	return this->res;
 }
 
-accept_awaiter::accept_awaiter(int sockfd, evented *ev) noexcept :
-	sockfd(sockfd),
-	ev(ev)
-{
+accept_awaiter::accept_awaiter(int sockfd, evented *ev) noexcept : sockfd(sockfd),
+																   ev(ev) {
 #ifdef DEBUG_MODE
 	id = 1;
 #endif
@@ -26,12 +24,10 @@ void accept_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexce
 	ev->submit_accept(sockfd, handle);
 }
 
-recv_awaiter::recv_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept :
-	clientfd(clientfd),
-	ev(ev),
-	buf(buf),
-	ts(ts)
-{
+recv_awaiter::recv_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept : clientfd(clientfd),
+																														 ev(ev),
+																														 buf(buf),
+																														 ts(ts) {
 #ifdef DEBUG_MODE
 	id = 2;
 #endif
@@ -44,8 +40,7 @@ void recv_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept
 }
 
 parse_awaiter::parse_awaiter(std::string req) noexcept
-    : req(req)
-{
+	: req(req) {
 #ifdef DEBUG_MODE
 	id = 3;
 #endif
@@ -56,12 +51,10 @@ void parse_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcep
 	p.execute(req);
 }
 
-write_awaiter::write_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept :
-	clientfd(clientfd),
-	ev(ev),
-	buf(buf),
-	ts(ts)
-{
+write_awaiter::write_awaiter(int clientfd, evented *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept : clientfd(clientfd),
+																														   ev(ev),
+																														   buf(buf),
+																														   ts(ts) {
 #ifdef DEBUG_MODE
 	id = 4;
 #endif
@@ -80,10 +73,8 @@ void write_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcep
 	ev->submit_expiring_write(clientfd, buf, response.size(), handle, ts);
 }
 
-close_awaiter::close_awaiter(int clientfd, evented *ev) noexcept :
-	clientfd(clientfd),
-	ev(ev)
-{
+close_awaiter::close_awaiter(int clientfd, evented *ev) noexcept : clientfd(clientfd),
+																   ev(ev) {
 #ifdef DEBUG_MODE
 	id = 5;
 #endif
