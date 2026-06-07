@@ -21,7 +21,7 @@ accept_awaiter::accept_awaiter(int sockfd, io_uring_ctx *ev) noexcept : sockfd(s
 void accept_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	ev->submit_accept(sockfd, handle);
+	ev->add_accept(sockfd, handle);
 }
 
 recv_awaiter::recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept : clientfd(clientfd),
@@ -36,7 +36,7 @@ recv_awaiter::recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFF
 void recv_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	ev->submit_expiring_read(clientfd, buf, handle, ts);
+	ev->add_read(clientfd, buf, handle, ts);
 }
 
 parse_awaiter::parse_awaiter(std::string req) noexcept
@@ -70,7 +70,7 @@ void write_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcep
 								 "Hello World!";
 	std::copy(response.begin(), response.begin() + response.size(), buf->begin());
 
-	ev->submit_expiring_write(clientfd, buf, response.size(), handle, ts);
+	ev->add_write(clientfd, buf, response.size(), handle, ts);
 }
 
 close_awaiter::close_awaiter(int clientfd, io_uring_ctx *ev) noexcept : clientfd(clientfd),
@@ -83,5 +83,5 @@ close_awaiter::close_awaiter(int clientfd, io_uring_ctx *ev) noexcept : clientfd
 void close_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	ev->submit_close(clientfd, handle);
+	ev->add_close(clientfd, handle);
 }
