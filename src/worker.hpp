@@ -1,9 +1,9 @@
 #pragma once
 
-#include "coring_server/io_uring_ctx.hpp"
+#include "io_uring_ctx.hpp"
 #include "coring_server/server.hpp"
-#include "coring_server/socket.hpp"
-#include "coring_server/task.hpp"
+#include "socket.hpp"
+#include "task.hpp"
 
 namespace coring_server {
 class server::worker {
