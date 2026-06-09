@@ -5,6 +5,18 @@
 #include <string>
 
 namespace coring_server {
+enum class event_type : unsigned char {
+	ACCEPT,
+	RECV,
+	WRITE,
+	CLOSE,
+};
+
+struct event_data {
+	void *coroutine_address;
+	event_type type;
+};
+
 template <typename T = void>
 class task {
   public:
@@ -12,7 +24,7 @@ class task {
 	using promise_type = T;
 };
 
-class awaiter;
+class base_awaiter;
 struct promise {
 	task<promise> get_return_object() {
 		return task<promise>{std::coroutine_handle<promise>::from_promise(*this)};
@@ -21,27 +33,27 @@ struct promise {
 	std::suspend_never final_suspend() noexcept { return {}; }
 	void return_void() noexcept {}
 	void unhandled_exception() noexcept { std::terminate(); }
-	awaiter *awaiter = nullptr;
+	base_awaiter *awaiter = nullptr;
 	int exchanges = 0;
 };
 
-class awaiter {
+class base_awaiter {
   public:
-	virtual bool await_ready() const noexcept { return false; }
-	virtual void await_suspend([[maybe_unused]] std::coroutine_handle<promise> handle) noexcept {}
+	bool await_ready() const noexcept { return false; }
 	void set_res(int res) noexcept;
 	int get_res() const noexcept;
-#ifdef DEBUG_MODE
-	int id = 0;
-#endif
+
   private:
 	int res = -1;
+
+  protected:
+	event_data data;
 };
 
-class accept_awaiter : public awaiter {
+class accept_awaiter : public base_awaiter {
   public:
 	accept_awaiter(int sockfd, io_uring_ctx *ev) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
@@ -49,10 +61,10 @@ class accept_awaiter : public awaiter {
 	io_uring_ctx *ev;
 };
 
-class recv_awaiter : public awaiter {
+class recv_awaiter : public base_awaiter {
   public:
 	recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
@@ -62,20 +74,20 @@ class recv_awaiter : public awaiter {
 	kernel_timespec *ts;
 };
 
-class parse_awaiter : public awaiter {
+class parse_awaiter : public base_awaiter {
   public:
 	parse_awaiter(std::string req) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	void await_resume() const noexcept {}
 
   private:
 	std::string req;
 };
 
-class write_awaiter : public awaiter {
+class write_awaiter : public base_awaiter {
   public:
 	write_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	int await_resume() const noexcept { return get_res(); }
 
   private:
@@ -85,10 +97,10 @@ class write_awaiter : public awaiter {
 	kernel_timespec *ts;
 };
 
-class close_awaiter : public awaiter {
+class close_awaiter : public base_awaiter {
   public:
 	close_awaiter(int clientfd, io_uring_ctx *ev) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept final;
+	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	int await_resume() const noexcept { return get_res(); }
 
   private:

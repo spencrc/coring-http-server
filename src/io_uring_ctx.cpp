@@ -39,17 +39,17 @@ void io_uring_ctx::cqe_seen(io_uring_cqe *cqe) {
 	io_uring_cqe_seen(&ring, cqe);
 }
 
-void io_uring_ctx::add_accept(int sockfd, std::coroutine_handle<> handle) {
+void io_uring_ctx::add_accept(int sockfd, void *data) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_accept(sqe, sockfd, nullptr, nullptr, 0);
-	io_uring_sqe_set_data(sqe, handle.address());
+	io_uring_sqe_set_data(sqe, data);
 }
 
 // TODO: take flags param and separate timeout enqueuing into own func
-void io_uring_ctx::add_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std::coroutine_handle<> handle, kernel_timespec *ts) {
+void io_uring_ctx::add_read(int clientfd, std::array<char, BUFFER_LEN> *buf, void *data, kernel_timespec *ts) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_recv(sqe, clientfd, buf, buf->size(), 0);
-	io_uring_sqe_set_data(sqe, handle.address());
+	io_uring_sqe_set_data(sqe, data);
 	io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 
 	sqe = io_uring_get_sqe(&ring);
@@ -58,10 +58,10 @@ void io_uring_ctx::add_read(int clientfd, std::array<char, BUFFER_LEN> *buf, std
 	io_uring_sqe_set_flags(sqe, 0);
 }
 
-void io_uring_ctx::add_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, std::coroutine_handle<> handle, kernel_timespec *ts) {
+void io_uring_ctx::add_write(int clientfd, std::array<char, BUFFER_LEN> *buf, const unsigned int write_len, void *data, kernel_timespec *ts) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_write(sqe, clientfd, buf, write_len, 0);
-	io_uring_sqe_set_data(sqe, handle.address());
+	io_uring_sqe_set_data(sqe, data);
 	io_uring_sqe_set_flags(sqe, IOSQE_IO_LINK);
 
 	sqe = io_uring_get_sqe(&ring);
@@ -70,8 +70,8 @@ void io_uring_ctx::add_write(int clientfd, std::array<char, BUFFER_LEN> *buf, co
 	io_uring_sqe_set_flags(sqe, 0);
 }
 
-void io_uring_ctx::add_close(int clientfd, std::coroutine_handle<> handle) {
+void io_uring_ctx::add_close(int clientfd, void *data) {
 	io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 	io_uring_prep_close(sqe, clientfd);
-	io_uring_sqe_set_data(sqe, handle.address());
+	io_uring_sqe_set_data(sqe, data);
 }
