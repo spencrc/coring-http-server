@@ -18,8 +18,7 @@ accept_awaiter::accept_awaiter(int sockfd, io_uring_ctx *ev) noexcept : sockfd(s
 void accept_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	data = event_data{.coroutine_address = handle.address(), .type = event_type::ACCEPT};
-	ev->add_accept(sockfd, &data);
+	ev->add_accept(sockfd, handle.address());
 }
 
 recv_awaiter::recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept : clientfd(clientfd),
@@ -30,8 +29,7 @@ recv_awaiter::recv_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFF
 void recv_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	data = event_data{.coroutine_address = handle.address(), .type = event_type::RECV};
-	ev->add_read(clientfd, buf, &data, ts);
+	ev->add_read(clientfd, buf, handle.address(), ts);
 }
 
 parse_awaiter::parse_awaiter(std::string req) noexcept
@@ -57,8 +55,7 @@ void write_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcep
 								 "Hello World!";
 	std::copy(response.begin(), response.begin() + response.size(), buf->begin());
 
-	data = event_data{.coroutine_address = handle.address(), .type = event_type::WRITE};
-	ev->add_write(clientfd, buf, response.size(), &data, ts);
+	ev->add_write(clientfd, buf, response.size(), handle.address(), ts);
 }
 
 close_awaiter::close_awaiter(int clientfd, io_uring_ctx *ev) noexcept : clientfd(clientfd),
@@ -67,6 +64,5 @@ close_awaiter::close_awaiter(int clientfd, io_uring_ctx *ev) noexcept : clientfd
 void close_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	data = event_data{.coroutine_address = handle.address(), .type = event_type::CLOSE};
-	ev->add_close(clientfd, &data);
+	ev->add_close(clientfd, handle.address());
 }

@@ -5,17 +5,6 @@
 #include <string>
 
 namespace coring_server {
-enum class event_type : unsigned char {
-	ACCEPT,
-	RECV,
-	WRITE,
-	CLOSE,
-};
-
-struct event_data {
-	void *coroutine_address;
-	event_type type;
-};
 
 template <typename T = void>
 class task {
@@ -46,8 +35,6 @@ class base_awaiter {
   private:
 	int res = -1;
 
-  protected:
-	event_data data;
 };
 
 class accept_awaiter : public base_awaiter {

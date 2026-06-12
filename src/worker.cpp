@@ -85,14 +85,14 @@ void server::worker::event_loop() noexcept {
 		const unsigned int count = ev.peek_batch_cqe(&cqes[0], DEFAULT_QUEUE_DEPTH * 2);
 		for (std::size_t i{0}; i < count; ++i) {
 			io_uring_cqe *cqe = cqes[i];
-			event_data *data = static_cast<event_data *>(io_uring_cqe_get_data(cqe));
+			void *coroutine_address = io_uring_cqe_get_data(cqe);
 			int res = cqe->res;
 			// if (res < 0) {
 			// 	fprintf(stderr, "res: %d  (error)\n", res);
 			// }
 
-			if (data != nullptr) {
-				auto handle = std::coroutine_handle<promise>::from_address(data->coroutine_address);
+			if (coroutine_address != nullptr) {
+				auto handle = std::coroutine_handle<promise>::from_address(coroutine_address);
 				handle.promise().awaiter->set_res(res);
 				handle.resume();
 			} // else {
