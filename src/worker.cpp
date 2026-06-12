@@ -7,22 +7,25 @@ using namespace coring_server;
 namespace sc = std::chrono;
 
 io_uring_params params{
-	.flags = IORING_SETUP_COOP_TASKRUN,
+	.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN,
 };
 
 server::worker::worker(address interface, const server_options &opts) : sock(socket(opts.domain, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
-																		ev(opts.queue_depth, &params),
 																		port(opts.port),
 																		interface(interface),
 																		max_connections(opts.max_connections),
 																		keepalive_requests(opts.keepalive_requests),
-																		keepalive_timeout(opts.keepalive_timeout) {
+																		keepalive_timeout(opts.keepalive_timeout),
+																		queue_depth(opts.queue_depth) {
 	constexpr unsigned int flag = 1;
 	sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 	sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
 }
 
 void server::worker::run() {
+    //needs to be initialized here to be pinned to correct thread
+    ev.emplace(queue_depth, &params);
+
 	sock.bind(port, interface);
 	sock.listen(max_connections);
 
@@ -43,7 +46,7 @@ task<promise> server::worker::handle_connection_async(int clientfd) noexcept {
 
 	while (++exchanges < keepalive_requests and
 		   sc::steady_clock::now() < endtime) {
-		int res = co_await recv_awaiter(clientfd, &ev, &read_buffer, &ts);
+		int res = co_await recv_awaiter(clientfd, &ev.value(), &read_buffer, &ts);
 		// res = 0 indicates nothing was read, so there's nothing to parse.
 		//  meanwhile, res < 0 indicates there was an error
 		if (res <= 0) {
@@ -53,17 +56,17 @@ task<promise> server::worker::handle_connection_async(int clientfd) noexcept {
 		std::string_view sv(read_buffer);
 		// co_await parse_awaiter(sv);
 
-		res = co_await write_awaiter(clientfd, &ev, &write_buffer, &ts);
+		res = co_await write_awaiter(clientfd, &ev.value(), &write_buffer, &ts);
 		if (res < 0) {
 			break;
 		}
 	}
-	co_await close_awaiter(clientfd, &ev);
+	co_await close_awaiter(clientfd, &ev.value());
 }
 
 task<promise> server::worker::serve_async() noexcept {
 	while (true) {
-		int clientfd = co_await accept_awaiter(sock.get_fd(), &ev);
+		int clientfd = co_await accept_awaiter(sock.get_fd(), &ev.value());
 		if (clientfd >= 0) {
 			handle_connection_async(clientfd);
 		}
@@ -71,11 +74,10 @@ task<promise> server::worker::serve_async() noexcept {
 }
 
 void server::worker::event_loop() noexcept {
-	// TODO: obtain user-passed CQSIZE instead of DEFAULT_QUEUE_DEPTH * 2
-	io_uring_cqe *cqes[DEFAULT_QUEUE_DEPTH * 2];
+	io_uring_cqe *cqes[queue_depth * 2];
 
 	while (true) {
-		int ret = ev.submit_and_wait(1);
+		int ret = ev->submit_and_wait(1);
 		if (ret == -EINTR) {
 			continue;
 		} else if (ret < 0) {
@@ -83,8 +85,7 @@ void server::worker::event_loop() noexcept {
 			break;
 		}
 
-		// TODO: obtain user-passed CQSIZE instead of DEFAULT_QUEUE_DEPTH * 2
-		const unsigned int count = ev.peek_batch_cqe(&cqes[0], DEFAULT_QUEUE_DEPTH * 2);
+		const unsigned int count = ev->peek_batch_cqe(&cqes[0], queue_depth * 2);
 		for (std::size_t i{0}; i < count; ++i) {
 			io_uring_cqe *cqe = cqes[i];
 			void *coroutine_address = io_uring_cqe_get_data(cqe);
@@ -102,6 +103,6 @@ void server::worker::event_loop() noexcept {
 			//}
 		}
 
-		ev.cq_advance(count);
+		ev->cq_advance(count);
 	}
 }
