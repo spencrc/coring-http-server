@@ -43,7 +43,7 @@ $(OUTPUT_DIR)/$(EXE_NAME): $(APP_OBJECTS) $(OUTPUT_DIR)/libllhttp.a | $(OUTPUT_D
 -include $(DEPENDS)
 
 $(OUTPUT_DIR)/%.o: src/%.cpp | $(OUTPUT_DIR)
-	$(CXX) -std=c++20 $(CFLAGS) $(WARN_FLAGS) -Ivendor/llhttp -Iinclude -MMD -MP -c $< -o $@
+	$(CXX) -std=c++23 $(CFLAGS) $(WARN_FLAGS) -Ivendor/llhttp -Iinclude -MMD -MP -c $< -o $@
 
 ################################################################
 # LLHTTP
