@@ -1,6 +1,7 @@
 #include "task.hpp"
 #include "client_req_parser.hpp"
 #include "io_uring_ctx.hpp"
+#include <cstring>
 
 using namespace coring_server;
 
@@ -32,7 +33,7 @@ void recv_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept
 	ev->add_read(clientfd, buf, handle.address(), ts);
 }
 
-parse_awaiter::parse_awaiter(std::string req) noexcept
+parse_awaiter::parse_awaiter(std::string_view req) noexcept
 	: req(req) {}
 
 void parse_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
@@ -48,12 +49,13 @@ write_awaiter::write_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BU
 void write_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
 	handle.promise().awaiter = this;
 
-	const std::string response = "HTTP/1.1 200 \r\n"
+	constexpr std::string_view response = "HTTP/1.1 200 \r\n"
 								 "Content-Length: 12 \r\n"
 								 "Content-Type: text/html \r\n"
 								 "Connection: keep-alive \r\n\r\n"
 								 "Hello World!";
 	std::copy(response.begin(), response.begin() + response.size(), buf->begin());
+	memcpy(buf->begin(), response.data(), response.size());
 
 	ev->add_write(clientfd, buf, response.size(), handle.address(), ts);
 }

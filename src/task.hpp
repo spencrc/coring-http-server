@@ -63,12 +63,12 @@ class recv_awaiter : public base_awaiter {
 
 class parse_awaiter : public base_awaiter {
   public:
-	parse_awaiter(std::string req) noexcept;
+	parse_awaiter(std::string_view req) noexcept;
 	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
 	void await_resume() const noexcept {}
 
   private:
-	std::string req;
+	std::string_view req;
 };
 
 class write_awaiter : public base_awaiter {

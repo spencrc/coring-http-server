@@ -72,7 +72,7 @@ class BaseParser {
 		parser.data = this;
 	}
 
-	llhttp_errno_t execute(std::string data) noexcept;
+	llhttp_errno_t execute(std::string_view data) noexcept;
 	void resume_after_upgrade() noexcept;
 	void resume() noexcept;
 	void pause() noexcept;

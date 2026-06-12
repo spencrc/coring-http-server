@@ -1,8 +1,8 @@
 #include "base_parser.hpp"
 #include "llhttp.h"
 
-llhttp_errno_t BaseParser::execute(std::string data) noexcept {
-	return llhttp_execute(&parser, data.c_str(), data.size());
+llhttp_errno_t BaseParser::execute(std::string_view data) noexcept {
+	return llhttp_execute(&parser, data.data(), data.size());
 }
 
 void BaseParser::resume_after_upgrade() noexcept {

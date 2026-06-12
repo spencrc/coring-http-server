@@ -1,5 +1,6 @@
 #include "worker.hpp"
 #include <chrono>
+#include <string_view>
 
 using namespace coring_server;
 
@@ -49,7 +50,8 @@ task<promise> server::worker::handle_connection_async(int clientfd) noexcept {
 			break;
 		}
 
-		co_await parse_awaiter(read_buffer.data());
+		std::string_view sv(read_buffer);
+		// co_await parse_awaiter(sv);
 
 		res = co_await write_awaiter(clientfd, &ev, &write_buffer, &ts);
 		if (res < 0) {
