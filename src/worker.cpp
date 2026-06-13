@@ -22,10 +22,16 @@ server::worker::worker(address interface, const server_options &opts)
 
 void server::worker::run() {
 	io_uring_params params{};
-	params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_CQSIZE;
+	params.flags = IORING_SETUP_SUBMIT_ALL |
+				   IORING_SETUP_SINGLE_ISSUER |
+				   IORING_SETUP_DEFER_TASKRUN |
+				   IORING_SETUP_CQSIZE;
 	params.cq_entries = cq_size;
 	// needs to be initialized here to be pinned to correct thread
 	ev.emplace(queue_depth, &params);
+
+	ev->register_files_sparse(max_connections + 1);
+	ev->register_files_update(0, {{sock.get_fd()}});
 
 	sock.bind(port, interface);
 	sock.listen(max_connections);
@@ -75,14 +81,14 @@ task<promise> server::worker::serve_async() noexcept {
 }
 
 void server::worker::event_loop() noexcept {
-	std::vector<io_uring_cqe *>cqes(cq_size);
+	std::vector<io_uring_cqe *> cqes(cq_size);
 
 	while (true) {
 		int ret = ev->submit_and_wait(1);
 		if (ret == -EINTR) {
 			continue;
 		} else if (ret < 0) {
-			fprintf(stderr, "submit and wait failed: %d\n", ret);
+			fprintf(stderr, "submit_and_wait: %d\n", ret);
 			break;
 		}
 
