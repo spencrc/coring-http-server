@@ -54,7 +54,6 @@ void write_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcep
 								 "Content-Type: text/html \r\n"
 								 "Connection: keep-alive \r\n\r\n"
 								 "Hello World!";
-	std::copy(response.begin(), response.begin() + response.size(), buf->begin());
 	memcpy(buf->begin(), response.data(), response.size());
 
 	ev->add_write(clientfd, buf, response.size(), handle.address(), ts);

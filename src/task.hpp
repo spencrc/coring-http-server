@@ -2,7 +2,7 @@
 #include "io_uring_ctx.hpp"
 #include <coroutine>
 #include <exception>
-#include <string>
+#include <string_view>
 
 namespace coring_server {
 
