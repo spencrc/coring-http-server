@@ -20,6 +20,7 @@ class server::worker {
 	unsigned int keepalive_requests;
 	unsigned int keepalive_timeout;
 	unsigned int queue_depth;
+	unsigned int cq_size;
 	void event_loop() noexcept;
 	task<promise> serve_async() noexcept;
 	task<promise> handle_connection_async(int clientfd) noexcept;

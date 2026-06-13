@@ -18,6 +18,7 @@ struct server_options {
    	unsigned int max_connections = DEFAULT_MAX_CONNECTIONS; // socket listen queue size / kernel backlog
    	unsigned int keepalive_requests = DEFAULT_KEEPALIVE_REQUESTS; // number of requests before fd is closed
    	unsigned int keepalive_timeout = DEFAULT_KEEPALIVE_TIMEOUT; // # of seconds before fd is closed
+    std::optional<unsigned int> cq_size = std::nullopt;
 };
 
 class server {

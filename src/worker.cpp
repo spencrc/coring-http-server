@@ -6,25 +6,26 @@ using namespace coring_server;
 
 namespace sc = std::chrono;
 
-io_uring_params params{
-	.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN,
-};
-
-server::worker::worker(address interface, const server_options &opts) : sock(socket(opts.domain, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
-																		port(opts.port),
-																		interface(interface),
-																		max_connections(opts.max_connections),
-																		keepalive_requests(opts.keepalive_requests),
-																		keepalive_timeout(opts.keepalive_timeout),
-																		queue_depth(opts.queue_depth) {
+server::worker::worker(address interface, const server_options &opts)
+	: sock(socket(opts.domain, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)),
+	  port(opts.port),
+	  interface(interface),
+	  max_connections(opts.max_connections),
+	  keepalive_requests(opts.keepalive_requests),
+	  keepalive_timeout(opts.keepalive_timeout),
+	  queue_depth(opts.queue_depth),
+	  cq_size(opts.cq_size.value_or(opts.queue_depth)) {
 	constexpr unsigned int flag = 1;
 	sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 	sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
 }
 
 void server::worker::run() {
-    //needs to be initialized here to be pinned to correct thread
-    ev.emplace(queue_depth, &params);
+	io_uring_params params{};
+	params.flags |= IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_CQSIZE;
+	params.cq_entries = cq_size;
+	// needs to be initialized here to be pinned to correct thread
+	ev.emplace(queue_depth, &params);
 
 	sock.bind(port, interface);
 	sock.listen(max_connections);
@@ -74,7 +75,7 @@ task<promise> server::worker::serve_async() noexcept {
 }
 
 void server::worker::event_loop() noexcept {
-	io_uring_cqe *cqes[queue_depth * 2];
+	std::vector<io_uring_cqe *>cqes(cq_size);
 
 	while (true) {
 		int ret = ev->submit_and_wait(1);
@@ -85,7 +86,7 @@ void server::worker::event_loop() noexcept {
 			break;
 		}
 
-		const unsigned int count = ev->peek_batch_cqe(&cqes[0], queue_depth * 2);
+		const unsigned int count = ev->peek_batch_cqe(cqes.data(), cq_size);
 		for (std::size_t i{0}; i < count; ++i) {
 			io_uring_cqe *cqe = cqes[i];
 			void *coroutine_address = io_uring_cqe_get_data(cqe);
