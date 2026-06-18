@@ -36,14 +36,6 @@ void recv_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept
 	ev->link_timeout(ts);
 }
 
-parse_awaiter::parse_awaiter(std::string_view req) noexcept
-	: req(req) {}
-
-void parse_awaiter::await_suspend(std::coroutine_handle<promise> handle) noexcept {
-	ClientReqParser p(handle);
-	p.execute(req);
-}
-
 write_awaiter::write_awaiter(int clientfd, io_uring_ctx *ev, std::array<char, BUFFER_LEN> *buf, kernel_timespec *ts) noexcept
 	: clientfd(clientfd),
 	  ev(ev),

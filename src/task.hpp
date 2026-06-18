@@ -2,7 +2,6 @@
 #include "io_uring_ctx.hpp"
 #include <coroutine>
 #include <exception>
-#include <string_view>
 
 namespace coring_server {
 
@@ -59,16 +58,6 @@ class recv_awaiter : public base_awaiter {
 	io_uring_ctx *ev;
 	std::array<char, BUFFER_LEN> *buf;
 	kernel_timespec *ts;
-};
-
-class parse_awaiter : public base_awaiter {
-  public:
-	parse_awaiter(std::string_view req) noexcept;
-	void await_suspend(std::coroutine_handle<promise> handle) noexcept;
-	void await_resume() const noexcept {}
-
-  private:
-	std::string_view req;
 };
 
 class write_awaiter : public base_awaiter {
