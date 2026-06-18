@@ -1,4 +1,5 @@
 #include "io_uring_ctx.hpp"
+#include <liburing.h>
 #include <system_error>
 
 using namespace coring_server;
@@ -17,6 +18,7 @@ io_uring_ctx::io_uring_ctx(unsigned int queue_depth, io_uring_params *params) {
 
 io_uring_ctx::~io_uring_ctx() {
 	if (fixed_files) io_uring_unregister_files(&ring);
+	if (napi != nullptr) io_uring_unregister_napi(&ring, napi);
 	io_uring_queue_exit(&ring);
 }
 
@@ -97,4 +99,12 @@ int io_uring_ctx::register_files_sparse(unsigned int nr_files) {
 
 int io_uring_ctx::register_files_update(unsigned int offset, std::span<const int> fds) {
 	return io_uring_register_files_update(&ring, offset, fds.data(), fds.size());
+}
+
+int io_uring_ctx::register_napi(io_uring_napi *napi) {
+	int ret = io_uring_register_napi(&ring, napi);
+	if (ret < 0)
+		throw std::system_error(-ret, std::generic_category(), "Failed to register NAPI");
+	this->napi = napi;
+	return ret;
 }

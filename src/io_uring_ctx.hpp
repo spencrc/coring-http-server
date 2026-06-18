@@ -27,9 +27,11 @@ class io_uring_ctx {
 	void close_direct(unsigned int file_index, void *data);
 	int register_files_sparse(unsigned int nr_files);
 	int register_files_update(unsigned int offset, std::span<const int> fds);
+	int register_napi(io_uring_napi *napi);
 
   private:
 	io_uring ring{};
+	io_uring_napi *napi = nullptr;
 	bool fixed_files = false;
 };
 } // namespace coring_server

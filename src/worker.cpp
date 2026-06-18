@@ -33,6 +33,12 @@ void server::worker::run() {
 	ev->register_files_sparse(max_connections + 1);
 	ev->register_files_update(0, {{sock.get_fd()}});
 
+	io_uring_napi napi{
+		.busy_poll_to = 100,
+		.prefer_busy_poll = true,
+	};
+	ev->register_napi(&napi);
+
 	sock.bind(port, interface);
 	sock.listen(max_connections);
 
