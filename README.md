@@ -1,5 +1,5 @@
 # Coring HTTP Server
-
+_Successor to [Zig Simple HTTP Server](https://github.com/spencrc/Zig-Simple-HTTP-Server)._
 ## Dependencies
 This project requires the following packages to be installed on your system:
 - [clang](https://clang.llvm.org/)
