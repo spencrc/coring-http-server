@@ -57,3 +57,13 @@ $(OUTPUT_DIR)/libllhttp.a: $(LLHTTP_OBJECTS) | $(OUTPUT_DIR)
 
 $(OUTPUT_DIR)/%.o: vendor/llhttp/%.c | $(OUTPUT_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+################################################################
+# DOCKER
+################################################################
+
+SECCOMP_SOURCE = https://github.com/moby/profiles/blob/main/seccomp/default.json
+
+docker/seccomp.json:
+	curl -L -o docker/seccomp.json https://raw.githubusercontent.com/moby/profiles/main/seccomp/default.json
+	python3 docker/seccomp.py
